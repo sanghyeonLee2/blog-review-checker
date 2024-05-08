@@ -1,13 +1,14 @@
 import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManage
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os
 import csv
 import re
+
 # Needed for OCR
 import requests
 import uuid
@@ -44,11 +45,13 @@ headers = {
   'X-OCR-SECRET': secret_key
 }
 
+image_dir = "images"
+os.makedirs(image_dir, exist_ok=True)  
 
 def get_ocr_data(image_url,cnt):
     img_text = ''
     img_response = requests.get(image_url)
-    filename = f"{cnt}.jpg"
+    filename = os.path.join(image_dir, f"{cnt}.jpg")"
      # 요청이 성공적으로 수행되었는지 확인
     if img_response.status_code == 200:
         # 이미지 데이터를 바이너리 형태로 파일에 저장
@@ -78,10 +81,11 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 query = "리뷰"
 pageCnt = 380 #페이지 넘버
 cnt = 1; #현재 크롤링 완료 블로그 수 
+desired_cnt = 4
 
 blog_posts = [] #블로그 정보를 저장할 배열
 
-while cnt < 2300:
+while cnt <= desired_cnt:
     try:
         driver.get(f"https://section.blog.naver.com/Search/Post.naver?pageNo={pageCnt}&rangeType=PERIOD&orderBy=recentdate&startDate=2022-03-01&endDate=2022-08-18&keyword={query}")
         time.sleep(2)
