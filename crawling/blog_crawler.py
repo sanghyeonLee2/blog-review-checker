@@ -36,7 +36,7 @@ headers = {'X-OCR-SECRET': secret_key}
 
 # 디렉토리 생성
 image_dir = "images"
-csv_dir = "data"
+csv_dir = "../data"
 os.makedirs(image_dir, exist_ok=True)
 os.makedirs(csv_dir, exist_ok=True)
 csv_path = os.path.join(csv_dir, "output.csv")
