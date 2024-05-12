@@ -1,6 +1,7 @@
 import pandas as pd
 from konlpy.tag import Okt
 from transformers import BertTokenizer
+import torch
 
 def text_preprocessing(text, stopwords):
     if pd.isnull(text) or text.strip() == "":
@@ -29,7 +30,11 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
         attention_masks.append(encoded_dict['attention_mask'])
         token_type_ids.append(encoded_dict['token_type_ids'])
 
-    return input_ids, attention_masks, token_type_ids
+    return (
+        torch.tensor(input_ids),
+        torch.tensor(attention_masks),
+        torch.tensor(token_type_ids)
+    )
 
 def main():
     df = pd.read_csv('../data/output.csv', encoding='utf-8-sig')
@@ -41,14 +46,15 @@ def main():
     df['combined_text'] = df['title'] + " " + df['ocr_data']
     df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
 
-    # KoBERT tokenizer 로드
     tokenizer = BertTokenizer.from_pretrained('monologg/kobert')
     MAX_LEN = 128
 
-    # 입력 변환
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
+
+    # 레이블 텐서 변환
+    labels = torch.tensor(df['blog_is_promotional'].values)
 
 if __name__ == '__main__':
     main()
