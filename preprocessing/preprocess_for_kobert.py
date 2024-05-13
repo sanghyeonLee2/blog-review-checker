@@ -1,42 +1,4 @@
-import pandas as pd
-from konlpy.tag import Okt
-from transformers import BertTokenizer
-from sklearn.model_selection import train_test_split
-import torch
-from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-
-def text_preprocessing(text, stopwords):
-    if pd.isnull(text) or text.strip() == "":
-        return ""
-    okt = Okt()
-    text = text.replace("\n", " ")
-    text = okt.morphs(text, stem=True)
-    text = [word for word in text if word not in stopwords]
-    return " ".join(text)
-
-def convert_to_kobert_inputs(text_list, max_len, tokenizer):
-    input_ids = []
-    attention_masks = []
-    token_type_ids = []
-
-    for text in text_list:
-        encoded_dict = tokenizer.encode_plus(
-            text,
-            add_special_tokens=True,
-            max_length=max_len,
-            padding='max_length',
-            return_attention_mask=True,
-            truncation=True
-        )
-        input_ids.append(encoded_dict['input_ids'])
-        attention_masks.append(encoded_dict['attention_mask'])
-        token_type_ids.append(encoded_dict['token_type_ids'])
-
-    return (
-        torch.tensor(input_ids),
-        torch.tensor(attention_masks),
-        torch.tensor(token_type_ids)
-    )
+# ... (생략된 앞부분 동일)
 
 def main():
     df = pd.read_csv('../data/output.csv', encoding='utf-8-sig')
@@ -67,13 +29,21 @@ def main():
         token_type_ids, labels, test_size=0.2, random_state=42
     )
 
-    # DataLoader 구성
     batch_size = 32
     train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
     val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
 
     train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=batch_size, num_workers=0)
     val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=batch_size, num_workers=0)
+
+    # 첫 배치 출력
+    for batch in train_dataloader:
+        b_input_ids, b_input_mask, b_segment_ids, b_labels = batch
+        print(b_input_ids.shape)
+        print(b_input_mask.shape)
+        print(b_segment_ids.shape)
+        print(b_labels.shape)
+        break
 
 if __name__ == '__main__':
     main()
