@@ -1,6 +1,7 @@
 import pandas as pd
 from konlpy.tag import Okt
 from transformers import BertTokenizer
+from sklearn.model_selection import train_test_split
 import torch
 
 def text_preprocessing(text, stopwords):
@@ -53,8 +54,18 @@ def main():
         df['combined_text'].values, MAX_LEN, tokenizer
     )
 
-    # 레이블 텐서 변환
     labels = torch.tensor(df['blog_is_promotional'].values)
+
+    # 학습/검증 분할
+    train_inputs, val_inputs, train_labels, val_labels = train_test_split(
+        input_ids, labels, test_size=0.2, random_state=42
+    )
+    train_masks, val_masks, _, _ = train_test_split(
+        attention_masks, labels, test_size=0.2, random_state=42
+    )
+    train_types, val_types, _, _ = train_test_split(
+        token_type_ids, labels, test_size=0.2, random_state=42
+    )
 
 if __name__ == '__main__':
     main()
