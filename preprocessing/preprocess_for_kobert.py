@@ -3,6 +3,7 @@ from konlpy.tag import Okt
 from transformers import BertTokenizer
 from sklearn.model_selection import train_test_split
 import torch
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
 def text_preprocessing(text, stopwords):
     if pd.isnull(text) or text.strip() == "":
@@ -56,7 +57,6 @@ def main():
 
     labels = torch.tensor(df['blog_is_promotional'].values)
 
-    # 학습/검증 분할
     train_inputs, val_inputs, train_labels, val_labels = train_test_split(
         input_ids, labels, test_size=0.2, random_state=42
     )
@@ -66,6 +66,14 @@ def main():
     train_types, val_types, _, _ = train_test_split(
         token_type_ids, labels, test_size=0.2, random_state=42
     )
+
+    # DataLoader 구성
+    batch_size = 32
+    train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
+    val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
+
+    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=batch_size, num_workers=0)
+    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=batch_size, num_workers=0)
 
 if __name__ == '__main__':
     main()
