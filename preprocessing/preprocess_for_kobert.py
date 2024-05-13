@@ -1,4 +1,40 @@
-# ... (생략된 앞부분 동일)
+import pandas as pd
+from konlpy.tag import Okt
+from transformers import BertTokenizer
+from sklearn.model_selection import train_test_split
+import torch
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+
+def text_preprocessing(text, stopwords):
+    if pd.isnull(text) or text.strip() == "":
+        return ""
+    okt = Okt()
+    text = text.replace("\n", " ")
+    text = okt.morphs(text, stem=True)
+    text = [word for word in text if word not in stopwords]
+    return " ".join(text)
+
+def convert_to_kobert_inputs(text_list, max_len, tokenizer):
+    input_ids, attention_masks, token_type_ids = [], [], []
+
+    for text in text_list:
+        encoded_dict = tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            max_length=max_len,
+            padding='max_length',
+            return_attention_mask=True,
+            truncation=True
+        )
+        input_ids.append(encoded_dict['input_ids'])
+        attention_masks.append(encoded_dict['attention_mask'])
+        token_type_ids.append(encoded_dict['token_type_ids'])
+
+    return (
+        torch.tensor(input_ids),
+        torch.tensor(attention_masks),
+        torch.tensor(token_type_ids)
+    )
 
 def main():
     df = pd.read_csv('../data/output.csv', encoding='utf-8-sig')
@@ -16,7 +52,6 @@ def main():
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
-
     labels = torch.tensor(df['blog_is_promotional'].values)
 
     train_inputs, val_inputs, train_labels, val_labels = train_test_split(
