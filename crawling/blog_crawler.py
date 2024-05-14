@@ -67,7 +67,7 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 query = "리뷰"
 pageCnt = 380
 cnt = 1
-desired_cnt = 2  # 테스트용
+desired_cnt = 10  # 테스트용
 
 blog_posts = []
 

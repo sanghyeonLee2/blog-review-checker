@@ -1,3 +1,4 @@
 .env
 .venv
 venv310
+/crawling/images
