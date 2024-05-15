@@ -9,7 +9,7 @@ import numpy as np
 from imblearn.over_sampling import SMOTE
 
 # 전처리된 데이터 불러오기
-df = pd.read_csv('../data/processed_output.csv', encoding='cp949')
+df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
 
 # KoBERT 토크나이저 로드
 tokenizer = BertTokenizer.from_pretrained('monologg/kobert')
