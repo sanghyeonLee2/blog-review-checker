@@ -41,7 +41,6 @@ os.makedirs(image_dir, exist_ok=True)
 os.makedirs(csv_dir, exist_ok=True)
 csv_path = os.path.join(csv_dir, "output.csv")
 
-
 def get_ocr_data(image_url, cnt):
     img_text = ''
     filename = os.path.join(image_dir, f"{cnt}.jpg")
@@ -57,17 +56,15 @@ def get_ocr_data(image_url, cnt):
             img_text += field.get('inferText', '')
     return img_text.strip()
 
-
 def tag_get_text(tag):
-    return tag.get_text().strip() if tag else "없음"
-
+    return tag.get_text().strip() if tag else None
 
 # 드라이버 실행
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 query = "리뷰"
 pageCnt = 380
 cnt = 1
-desired_cnt = 30  # 테스트용
+desired_cnt = 30
 
 blog_posts = []
 
@@ -98,27 +95,28 @@ while cnt <= desired_cnt:
 
             title = iframe_soup.find('h3', class_='se_textarea')
             content = iframe_soup.select('span[class^="se-fs-"]')
-            date = iframe_soup.find('span', class_='se_publishDate pcol2').get_text()
-            writer = iframe_soup.find('a', class_='link pcol2').get_text()
-            images = iframe_soup.select('img[class$="egjs-visible"]') or "이미지 없음"
+            date = tag_get_text(iframe_soup.find('span', class_='se_publishDate pcol2'))
+            writer = tag_get_text(iframe_soup.find('a', class_='link pcol2'))
+            images = iframe_soup.select('img[class$="egjs-visible"]')
             empathy_cnt = tag_get_text(iframe_soup.find('em', class_='u_cnt _count'))
             writer_review_str = tag_get_text(iframe_soup.find('h4', class_='category_title pcol2'))
             comments_cnt = tag_get_text(iframe_soup.find('em', class_='_commentCount'))
 
-            if writer_review_str != "없음":
+            writer_reviews_cnt = 0
+            if writer_review_str:
                 writer_reviews = re.findall(r'\d+', writer_review_str)
                 writer_reviews_cnt = int(writer_reviews[0]) if writer_reviews else 0
-            else:
-                writer_reviews_cnt = 0
 
             blog_title = title.get_text() if title else (content[0].get_text() if content else "")
             for tag in content:
                 blog_content += tag.get_text()
             blog_content = blog_content.replace('\u200b', '').replace(' ', '')
 
-            if images != "이미지 없음":
+            if images:
                 image_url = images[-1]['src']
                 ocr_data = get_ocr_data(image_url, cnt)
+            else:
+                ocr_data = ""
 
             combined_text = blog_content + blog_title + ocr_data
             for promo_word in promotional_text_set:
@@ -128,8 +126,8 @@ while cnt <= desired_cnt:
 
             blog_posts.append({
                 'cnt': cnt,
-                'writer': writer.strip(),
-                'date': date.strip(),
+                'writer': writer,
+                'date': date,
                 'url': href.strip(),
                 'title': blog_title.strip(),
                 'content': blog_content,
