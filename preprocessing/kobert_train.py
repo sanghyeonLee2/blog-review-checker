@@ -132,7 +132,7 @@ def main():
         print(f"Confusion Matrix:\n{conf_matrix}")
 
     # Save
-    output_dir = './model_save/'
+    output_dir = '../data/model_save/'
     os.makedirs(output_dir, exist_ok=True)
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
