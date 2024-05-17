@@ -13,6 +13,7 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
 
     for text in text_list:
+        text = "" if pd.isnull(text) else text  # 안전한 텍스트 처리 추가
         encoded_dict = tokenizer.encode_plus(
             text,
             add_special_tokens=True,
