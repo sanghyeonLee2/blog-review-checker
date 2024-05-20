@@ -46,7 +46,8 @@ def main():
 
     df['title'] = df['title'].fillna("")
     df['ocr_data'] = df['ocr_data'].fillna("")
-    df['combined_text'] = df['title'] + " " + df['ocr_data']
+    df['content'] = df['content'].fillna("")  # 이거 추가
+    df['combined_text'] = df['title'] + " " + df['ocr_data'] + " " + df['content']
 
     df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
 
