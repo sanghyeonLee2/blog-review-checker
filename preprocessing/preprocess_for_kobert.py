@@ -46,9 +46,12 @@ def main():
 
     df['title'] = df['title'].fillna("")
     df['ocr_data'] = df['ocr_data'].fillna("")
-    df['content'] = df['content'].fillna("")  # 이거 추가
+    df['content'] = df['content'].fillna("")
+
     df['combined_text'] = df['title'] + " " + df['ocr_data'] + " " + df['content']
 
+    # 필요한 컬럼만 추출
+    df = df[['cnt', 'combined_text', 'blog_is_promotional']]
     df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
 
     tokenizer = BertTokenizer.from_pretrained('monologg/kobert')
@@ -76,7 +79,7 @@ def main():
     train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=batch_size, num_workers=0)
     val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=batch_size, num_workers=0)
 
-    # 첫 배치 출력
+    # 첫 배치 shape 확인용 출력
     for batch in train_dataloader:
         b_input_ids, b_input_mask, b_segment_ids, b_labels = batch
         print(b_input_ids.shape)
