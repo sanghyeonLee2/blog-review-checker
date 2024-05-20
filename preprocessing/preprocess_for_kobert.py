@@ -2,13 +2,16 @@ import pandas as pd
 from konlpy.tag import Okt
 from transformers import BertTokenizer
 from sklearn.model_selection import train_test_split
+import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+
+# Okt 객체는 매번 생성하지 않고 전역에서 한 번만 생성
+okt = Okt()
 
 def text_preprocessing(text, stopwords):
     if pd.isnull(text) or text.strip() == "":
         return ""
-    okt = Okt()
     text = text.replace("\n", " ")
     text = okt.morphs(text, stem=True)
     text = [word for word in text if word not in stopwords]
@@ -62,15 +65,14 @@ def main():
     )
     labels = torch.tensor(df['blog_is_promotional'].values)
 
-    train_inputs, val_inputs, train_labels, val_labels = train_test_split(
-        input_ids, labels, test_size=0.2, random_state=42
-    )
-    train_masks, val_masks, _, _ = train_test_split(
-        attention_masks, labels, test_size=0.2, random_state=42
-    )
-    train_types, val_types, _, _ = train_test_split(
-        token_type_ids, labels, test_size=0.2, random_state=42
-    )
+    # 인덱스를 기준으로 train/val 나누기
+    indices = np.arange(len(labels))
+    train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
+
+    train_inputs, val_inputs = input_ids[train_idx], input_ids[val_idx]
+    train_masks, val_masks = attention_masks[train_idx], attention_masks[val_idx]
+    train_types, val_types = token_type_ids[train_idx], token_type_ids[val_idx]
+    train_labels, val_labels = labels[train_idx], labels[val_idx]
 
     batch_size = 32
     train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
