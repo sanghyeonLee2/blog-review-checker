@@ -4,12 +4,13 @@ import pandas as pd
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
+from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 from transformers import BertTokenizer, BertForSequenceClassification, get_linear_schedule_with_warmup
 from torch.optim import AdamW
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
-def convert_to_kobert_inputs(text_list, max_len, tokenizer):
+
+def convert_to_bert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
 
     for text in text_list:
@@ -27,15 +28,17 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
         token_type_ids.append(encoded_dict['token_type_ids'])
 
     return (
-        torch.tensor(input_ids),
-        torch.tensor(attention_masks),
-        torch.tensor(token_type_ids)
+        torch.tensor(input_ids, dtype=torch.long),
+        torch.tensor(attention_masks, dtype=torch.long),
+        torch.tensor(token_type_ids, dtype=torch.long)
     )
+
 
 def flat_accuracy(preds, labels):
     pred_flat = np.argmax(preds, axis=1).flatten()
     labels_flat = labels.flatten()
     return np.sum(pred_flat == labels_flat) / len(labels_flat)
+
 
 def main():
     # Config
@@ -44,15 +47,15 @@ def main():
     EPOCHS = 4
     MODEL_NAME = 'monologg/kobert'
 
+    # Load data
     df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
 
-    input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
+    input_ids, attention_masks, token_type_ids = convert_to_bert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
-    labels = torch.tensor(df['blog_is_promotional'].values)
+    labels = torch.tensor(df['blog_is_promotional'].values, dtype=torch.long)
 
-    # Index-based splitting
     indices = np.arange(len(labels))
     train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42, stratify=labels)
 
@@ -65,18 +68,17 @@ def main():
     train_labels = labels[train_idx]
     val_labels = labels[val_idx]
 
-    # Dataset & Dataloader
     train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
     val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
 
-    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE, num_workers=2)
-    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE, num_workers=2)
+    # Windows 환경: num_workers=0
+    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE, num_workers=0)
+    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE, num_workers=0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
     model.to(device)
 
-    # 클래스 가중치 기반 Loss
     class_counts = np.bincount(labels.numpy())
     class_weights = 1.0 / torch.tensor(class_counts, dtype=torch.float)
     class_weights = class_weights.to(device)
@@ -89,13 +91,12 @@ def main():
     for epoch_i in range(EPOCHS):
         print(f'======== Epoch {epoch_i + 1} / {EPOCHS} ========')
 
-        # Training
         model.train()
         total_loss = 0
         for batch in train_dataloader:
             b_input_ids, b_input_mask, b_segment_ids, b_labels = tuple(t.to(device) for t in batch)
 
-            model.zero_grad()
+            optimizer.zero_grad()
             outputs = model(b_input_ids, token_type_ids=b_segment_ids, attention_mask=b_input_mask)
             loss = loss_fn(outputs.logits, b_labels)
             total_loss += loss.item()
@@ -159,6 +160,7 @@ def main():
         json.dump(config, f, indent=2)
 
     print(f"Model and config saved to {output_dir}")
+
 
 if __name__ == '__main__':
     main()
