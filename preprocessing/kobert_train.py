@@ -5,12 +5,13 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
-from transformers import BertTokenizer, BertForSequenceClassification, get_linear_schedule_with_warmup
+from kobert_transformers import get_tokenizer
+from transformers import BertForSequenceClassification, get_linear_schedule_with_warmup
 from torch.optim import AdamW
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
 
-def convert_to_bert_inputs(text_list, max_len, tokenizer):
+def convert_to_kobert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
 
     for text in text_list:
@@ -41,17 +42,16 @@ def flat_accuracy(preds, labels):
 
 
 def main():
-    # Config
     MAX_LEN = 128
     BATCH_SIZE = 32
     EPOCHS = 4
     MODEL_NAME = 'monologg/kobert'
 
-    # Load data
     df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
-    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
 
-    input_ids, attention_masks, token_type_ids = convert_to_bert_inputs(
+    tokenizer = get_tokenizer()
+
+    input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
     labels = torch.tensor(df['blog_is_promotional'].values, dtype=torch.long)
@@ -71,7 +71,6 @@ def main():
     train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
     val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
 
-    # Windows 환경: num_workers=0
     train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE, num_workers=0)
     val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE, num_workers=0)
 

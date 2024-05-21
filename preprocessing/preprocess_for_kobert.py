@@ -1,6 +1,6 @@
 import pandas as pd
 from konlpy.tag import Okt
-from kobert_transformers import get_tokenizer  # ✅ 변경된 부분
+from kobert_transformers import get_tokenizer
 from sklearn.model_selection import train_test_split
 import numpy as np
 import torch
