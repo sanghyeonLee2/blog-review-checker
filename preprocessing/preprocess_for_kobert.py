@@ -6,7 +6,6 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
-# Okt 객체는 매번 생성하지 않고 전역에서 한 번만 생성
 okt = Okt()
 
 def text_preprocessing(text, stopwords):
