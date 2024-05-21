@@ -1,6 +1,6 @@
 import pandas as pd
 from konlpy.tag import Okt
-from transformers import BertTokenizer
+from kobert_transformers import get_tokenizer  # ✅ 변경된 부분
 from sklearn.model_selection import train_test_split
 import numpy as np
 import torch
@@ -33,9 +33,9 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
         token_type_ids.append(encoded_dict['token_type_ids'])
 
     return (
-        torch.tensor(input_ids),
-        torch.tensor(attention_masks),
-        torch.tensor(token_type_ids)
+        torch.tensor(input_ids, dtype=torch.long),
+        torch.tensor(attention_masks, dtype=torch.long),
+        torch.tensor(token_type_ids, dtype=torch.long)
     )
 
 def main():
@@ -52,19 +52,17 @@ def main():
 
     df['combined_text'] = df['title'] + " " + df['ocr_data'] + " " + df['content']
 
-    # 필요한 컬럼만 추출
     df = df[['cnt', 'combined_text', 'blog_is_promotional']]
     df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
 
-    tokenizer = BertTokenizer.from_pretrained('monologg/kobert')
+    tokenizer = get_tokenizer()  # ✅ 변경된 부분
     MAX_LEN = 128
 
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
-    labels = torch.tensor(df['blog_is_promotional'].values)
+    labels = torch.tensor(df['blog_is_promotional'].values, dtype=torch.long)
 
-    # 인덱스를 기준으로 train/val 나누기
     indices = np.arange(len(labels))
     train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42)
 
@@ -80,7 +78,6 @@ def main():
     train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=batch_size, num_workers=0)
     val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=batch_size, num_workers=0)
 
-    # 첫 배치 shape 확인용 출력
     for batch in train_dataloader:
         b_input_ids, b_input_mask, b_segment_ids, b_labels = batch
         print(b_input_ids.shape)
