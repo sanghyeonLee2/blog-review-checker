@@ -136,7 +136,9 @@ def main():
         preds_flat = np.argmax(preds, axis=1).flatten()
         labels_flat = true_labels.flatten()
 
-        precision, recall, f1, _ = precision_recall_fscore_support(labels_flat, preds_flat, average='binary')
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            labels_flat, preds_flat, average='binary', zero_division=0
+        )
         conf_matrix = confusion_matrix(labels_flat, preds_flat)
 
         print(f"Precision: {precision:.2f}")
