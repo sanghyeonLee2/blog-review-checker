@@ -149,7 +149,7 @@ def main():
     output_dir = '../data/model_save/'
     os.makedirs(output_dir, exist_ok=True)
     model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    #tokenizer.save_pretrained(output_dir)
 
     config = {
         "model_name": MODEL_NAME,
