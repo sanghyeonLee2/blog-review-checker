@@ -137,6 +137,16 @@ while cnt <= desired_cnt:
                 'writer_reviews_cnt': writer_reviews_cnt,
                 'blog_is_promotional': blog_is_promotional
             })
+
+            if cnt % 500 == 0:
+                with open(csv_path, 'w', newline='', encoding='utf-8-sig') as file:
+                    fieldnames = ['cnt','writer','date','url','title','content','ocr_data','comments_cnt','empathy_cnt','writer_reviews_cnt','blog_is_promotional']
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    writer.writeheader()
+                    for item in blog_posts:
+                        writer.writerow(item)
+                print(f"🔄 중간 저장 완료 - {cnt}개")
+
             cnt += 1
             if cnt > desired_cnt:
                 break
