@@ -6,11 +6,15 @@
     <link rel="stylesheet" type="text/css" href="./popup.css" />
   </head>
   <body>
-    <h2>
-      블로그 홍보성 <br />
-      분석기
-    </h2>
-    <button>홍보성 체크</button>
+    <h2>블로그 홍보성 분석기</h2>
+    <button id="fetchContent">
+      <span id="buttonText">홍보성 체크</span>
+      <span class="buttonPlaceholder">분석 중...</span>
+    </button>
+    <div id="resultWrap">
+      <p id="result">클릭 한 번으로 광고성 리뷰를 확인해보세요!</p>
+      <p id="rateResult"></p>
+    </div>
     <small id="description"
       >작성된 블로그 글이 광고일 가능성을 분석합니다</small
     >
