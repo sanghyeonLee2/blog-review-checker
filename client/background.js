@@ -1,5 +1,9 @@
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Extension installed");
+  createContextMenu();
+});
+
+const createContextMenu = () => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "fetchPageTitle",
@@ -7,45 +11,41 @@ chrome.runtime.onInstalled.addListener(() => {
       contexts: ["link"],
     });
   });
-});
+};
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== "fetchPageTitle") return;
-  fetchPageTitle(tab.id, info.linkUrl);
+  handleLinkAnalysis(tab.id, info.linkUrl);
 });
 
-const fetchPageTitle = async (tabId, url) => {
+const handleLinkAnalysis = async (tabId, url) => {
   try {
-    await executeScriptAsync({
-      target: { tabId },
-      files: ["./scripts/content.js"],
-    });
+    await runScript(tabId, "./scripts/content.js");
 
-    const response = await sendMessageAsync(tabId, {
+    const response = await sendMessage(tabId, {
       action: "fetchPageTitle",
       url,
     });
 
     console.log("Page title:", response);
   } catch (err) {
-    console.error(err);
+    console.error("Error during link analysis:", err);
   }
 };
 
-const executeScriptAsync = (details) =>
+const wrapChromeCallback = (fn) =>
   new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(details, () => {
+    fn((...args) => {
       chrome.runtime.lastError
-        ? reject(new Error(chrome.runtime.lastError))
-        : resolve();
+        ? reject(new Error(chrome.runtime.lastError.message))
+        : resolve(...args);
     });
   });
 
-const sendMessageAsync = (tabId, message) =>
-  new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      chrome.runtime.lastError
-        ? reject(new Error(chrome.runtime.lastError))
-        : resolve(response);
-    });
-  });
+const runScript = (tabId, file) =>
+  wrapChromeCallback((cb) =>
+    chrome.scripting.executeScript({ target: { tabId }, files: [file] }, cb)
+  );
+
+const sendMessage = (tabId, message) =>
+  wrapChromeCallback((cb) => chrome.tabs.sendMessage(tabId, message, cb));
