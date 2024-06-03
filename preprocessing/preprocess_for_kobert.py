@@ -11,10 +11,11 @@ okt = Okt()
 def text_preprocessing(text, stopwords):
     if pd.isnull(text) or text.strip() == "":
         return ""
-    text = text.replace("\n", " ")
-    text = okt.morphs(text, stem=True)
-    text = [word for word in text if word not in stopwords]
-    return " ".join(text)
+    text = text.replace("\n", " ").replace("\u200b", "")
+    text = " ".join(text.split())
+    tokens = okt.morphs(text, stem=True)
+    return " ".join([word for word in tokens if word not in stopwords])
+
 
 def convert_to_kobert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
