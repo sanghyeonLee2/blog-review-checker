@@ -5,8 +5,11 @@ import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
-from kobert_transformers import get_tokenizer
-from transformers import BertForSequenceClassification, get_linear_schedule_with_warmup
+from transformers import (
+    BertTokenizer,
+    BertForSequenceClassification,
+    get_linear_schedule_with_warmup,
+)
 from torch.optim import AdamW
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
@@ -22,6 +25,7 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
             max_length=max_len,
             padding='max_length',
             return_attention_mask=True,
+            return_token_type_ids=True,
             truncation=True
         )
         input_ids.append(encoded_dict['input_ids'])
@@ -49,8 +53,7 @@ def main():
 
     df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
 
-    tokenizer = get_tokenizer()
-
+    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
@@ -59,20 +62,16 @@ def main():
     indices = np.arange(len(labels))
     train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42, stratify=labels)
 
-    train_inputs = input_ids[train_idx]
-    val_inputs = input_ids[val_idx]
-    train_masks = attention_masks[train_idx]
-    val_masks = attention_masks[val_idx]
-    train_types = token_type_ids[train_idx]
-    val_types = token_type_ids[val_idx]
-    train_labels = labels[train_idx]
-    val_labels = labels[val_idx]
+    train_inputs, val_inputs = input_ids[train_idx], input_ids[val_idx]
+    train_masks, val_masks = attention_masks[train_idx], attention_masks[val_idx]
+    train_types, val_types = token_type_ids[train_idx], token_type_ids[val_idx]
+    train_labels, val_labels = labels[train_idx], labels[val_idx]
 
     train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
     val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
 
-    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE, num_workers=0)
-    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE, num_workers=0)
+    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE)
+    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
@@ -106,7 +105,6 @@ def main():
 
         print(f"Average training loss: {total_loss / len(train_dataloader):.2f}")
 
-        # Evaluation
         model.eval()
         eval_loss = 0
         eval_accuracy = 0
@@ -148,8 +146,11 @@ def main():
 
     output_dir = '../data/model_save/'
     os.makedirs(output_dir, exist_ok=True)
+
+    # 모델 + 토크나이저 저장 (Hugging Face 방식)
     model.save_pretrained(output_dir)
-    #tokenizer.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print(f"✅ Model and tokenizer saved to {output_dir}")
 
     config = {
         "model_name": MODEL_NAME,
@@ -159,8 +160,7 @@ def main():
     }
     with open(os.path.join(output_dir, "training_config.json"), "w") as f:
         json.dump(config, f, indent=2)
-
-    print(f"Model and config saved to {output_dir}")
+    print("✅ training_config.json saved.")
 
 
 if __name__ == '__main__':
