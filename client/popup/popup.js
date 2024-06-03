@@ -1,53 +1,62 @@
 const button = document.getElementById("fetchContent");
-button.addEventListener("click", onFetchClick);
+const buttonText = document.getElementById("buttonText");
+const resultElement = document.getElementById("result");
+const rateResultElement = document.getElementById("rateResult");
 
-function onFetchClick() {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+const onFetchClick = () => {
+  updateResult("분석 중입니다...", "잠시만 기다려주세요.");
+  buttonText.textContent = "분석 중...";
+  button.disabled = true;
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tabId = tabs[0].id;
-
     chrome.scripting.executeScript(
       {
         target: { tabId },
-        files: ["./scripts/content.js"],
+        files: ["scripts/content.js"],
       },
-      () => handleScriptInjected(tabId)
+      () => {
+        chrome.tabs.sendMessage(
+          tabId,
+          { action: "fetchBlogContent" },
+          handleMessageResponse
+        );
+      }
     );
   });
-}
+};
 
-function handleScriptInjected(tabId) {
-  chrome.tabs.sendMessage(
-    tabId,
-    { action: "fetchBlogContent" },
-    handleMessageResponse
-  );
-}
+button.addEventListener("click", onFetchClick);
 
-function handleMessageResponse(response) {
+const handleMessageResponse = (response) => {
   console.log("Received response:", response);
+  buttonText.textContent = "홍보성 체크";
+  button.disabled = false;
 
-  const content = response?.content;
-  const resultElement = document.getElementById("result");
-  const rateResultElement = document.getElementById("rateResult");
+  const { predictions, probabilities } = response ?? {};
 
-  if (content && Array.isArray(content)) {
-    const isPromotional = content[0][0];
-    const probability = content[1][0][1];
-
-    if (isPromotional === 0) {
-      resultElement.textContent = "홍보성이 아닙니다";
-      rateResultElement.textContent = `리뷰가 홍보성일 확률 : ${probability.toFixed(
-        1
-      )}%`;
-    } else {
-      resultElement.textContent = "홍보성입니다";
-      rateResultElement.textContent = `리뷰가 홍보성일 확률 : ${(
-        100 - probability
-      ).toFixed(1)}%`;
-    }
-  } else {
-    console.error("Invalid response structure:", response);
-    resultElement.textContent = "결과를 불러오지 못했습니다.";
-    rateResultElement.textContent = "";
+  if (!Array.isArray(predictions) || !Array.isArray(probabilities)) {
+    updateResult("결과를 불러오지 못했습니다.");
+    return;
   }
+
+  const isPromotional = predictions[0];
+  const probability = probabilities[0][0];
+
+  if (isPromotional === 1) {
+    updateResult(
+      "홍보성입니다",
+      `리뷰가 홍보성일 확률 : ${probability.toFixed(1)}%`
+    );
+  } else {
+    updateResult(
+      "홍보성이 아닙니다",
+      `리뷰가 홍보성일 확률 : ${(100 - probability).toFixed(1)}%`
+    );
+  }
+};
+
+function updateResult(mainText, subText = "") {
+  resultElement.textContent = mainText;
+  rateResultElement.textContent = subText;
 }
