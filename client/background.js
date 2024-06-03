@@ -15,13 +15,12 @@ const createContextMenu = () => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== "fetchPageTitle") return;
+
   handleLinkAnalysis(tab.id, info.linkUrl);
 });
 
 const handleLinkAnalysis = async (tabId, url) => {
   try {
-    await runScript(tabId, "./scripts/content.js");
-
     const response = await sendMessage(tabId, {
       action: "fetchPageTitle",
       url,
@@ -41,11 +40,6 @@ const wrapChromeCallback = (fn) =>
         : resolve(...args);
     });
   });
-
-const runScript = (tabId, file) =>
-  wrapChromeCallback((cb) =>
-    chrome.scripting.executeScript({ target: { tabId }, files: [file] }, cb)
-  );
 
 const sendMessage = (tabId, message) =>
   wrapChromeCallback((cb) => chrome.tabs.sendMessage(tabId, message, cb));
