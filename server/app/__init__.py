@@ -5,11 +5,11 @@ def create_app():
     app = Flask(__name__)
     CORS(app, resources={r"/*": {"origins": "*"}})
   
-    from app.routes.blog import blog_bp
-    from app.routes.process import process_bp
+    from app.routes.fetch_from_outer import fetch_from_outer_bp
+    from app.routes.fetch_from_inner import fetch_from_inner_bp
 
 
-    app.register_blueprint(blog_bp)
-    app.register_blueprint(process_bp)
+    app.register_blueprint(fetch_from_outer_bp)
+    app.register_blueprint(fetch_from_inner_bp)
 
     return app

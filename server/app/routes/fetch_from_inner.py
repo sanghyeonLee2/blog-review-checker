@@ -2,10 +2,10 @@ from flask import Blueprint, request, jsonify
 from app.services.inference import run_inference
 from app.services.ocr import get_ocr_text
 
-process_bp = Blueprint('process', __name__)
+fetch_from_inner_bp = Blueprint('fetch-from-inner', __name__)
 
-@process_bp.route('/process', methods=['POST'])
-def process_blog_data():
+@fetch_from_inner_bp.route('/fetch-from-inner', methods=['POST'])
+def fetch_from_inner():
     data = request.get_json()
     title = data.get('title', '')
     content_text = data.get('contentText', '')
