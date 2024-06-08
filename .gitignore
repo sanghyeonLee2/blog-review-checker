@@ -4,3 +4,4 @@ venv310
 /crawling/images
 __pycache__/
 *.py[cod]
+/client/node_modules
