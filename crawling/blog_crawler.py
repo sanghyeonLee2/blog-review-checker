@@ -62,15 +62,17 @@ def tag_get_text(tag):
 # 드라이버 실행
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 query = "리뷰"
-pageCnt = 380
+pageCnt = 1
 cnt = 1
-desired_cnt = 30
+desired_cnt = 2000
+startDate='2023-03-01'
+endDate='2023-08-18'
 
 blog_posts = []
 
 while cnt <= desired_cnt:
     try:
-        driver.get(f"https://section.blog.naver.com/Search/Post.naver?pageNo={pageCnt}&rangeType=PERIOD&orderBy=recentdate&startDate=2022-03-01&endDate=2022-08-18&keyword={query}")
+        driver.get(f"https://section.blog.naver.com/Search/Post.naver?pageNo={pageCnt}&rangeType=PERIOD&orderBy=recentdate&startDate={startDate}&endDate={endDate}&keyword={query}")
         time.sleep(2)
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         content_list = soup.find('div', class_='area_list_search')
@@ -146,6 +148,8 @@ while cnt <= desired_cnt:
                     for item in blog_posts:
                         writer.writerow(item)
                 print(f"🔄 중간 저장 완료 - {cnt}개")
+                
+            print(f"✅ 수집 완료 - cnt: {cnt}, pageCnt: {pageCnt}, href: {href}")
 
             cnt += 1
             if cnt > desired_cnt:
