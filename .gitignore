@@ -1,10 +1,23 @@
+# 환경 변수 & 가상환경
 .env
-.venv
-venv310
-/crawling/images
+.venv/
+venv310/
 __pycache__/
+
+# Python 컴파일 결과
 *.py[cod]
-/client/node_modules
+*.so
+
+# 크롤링 이미지 및 민감 데이터
+/crawling/images/
+
+# Node.js 의존성
+/client/node_modules/
+
+# CSV 데이터 파일 (크롤링 원본 및 전처리 포함)
+data/*.csv
+
+# SSL 인증서 및 키
 server/ssl/
 *.pem
 *.key
