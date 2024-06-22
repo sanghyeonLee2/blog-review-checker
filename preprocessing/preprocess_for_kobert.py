@@ -16,7 +16,6 @@ def text_preprocessing(text, stopwords):
     tokens = okt.morphs(text, stem=True)
     return " ".join([word for word in tokens if word not in stopwords])
 
-
 def convert_to_kobert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
 
@@ -44,19 +43,29 @@ def main():
 
     stopwords = ['의', '가', '이', '은', '들', '는', '좀', '잘', '걍', '과', '도', '를', '으로', '자', '에', '와', '한', '하다']
 
-    df['content'] = df['content'].apply(lambda x: text_preprocessing(x, stopwords))
-    df['ocr_data'] = df['ocr_data'].apply(lambda x: text_preprocessing(x, stopwords) if pd.notnull(x) else "")
-
     df['title'] = df['title'].fillna("")
     df['ocr_data'] = df['ocr_data'].fillna("")
     df['content'] = df['content'].fillna("")
 
+    df['content'] = df['content'].apply(lambda x: text_preprocessing(x, stopwords))
+    df['ocr_data'] = df['ocr_data'].apply(lambda x: text_preprocessing(x, stopwords))
+
+    print("\n전처리 샘플 확인 (상위 5개)")
+    for i in range(5):
+        print(f"▶ [index {i}]")
+        print("title:", df.loc[i, 'title'])
+        print("ocr_data:", df.loc[i, 'ocr_data'])
+        print("content:", df.loc[i, 'content'])
+        print("-" * 50)
+
     df['combined_text'] = df['title'] + " " + df['ocr_data'] + " " + df['content']
 
     df = df[['cnt', 'combined_text', 'blog_is_promotional']]
-    df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
 
-    tokenizer = get_tokenizer()  # ✅ 변경된 부분
+    df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
+    print("전처리 완료 및 저장: processed_output.csv")
+
+    tokenizer = get_tokenizer()
     MAX_LEN = 128
 
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
@@ -81,10 +90,11 @@ def main():
 
     for batch in train_dataloader:
         b_input_ids, b_input_mask, b_segment_ids, b_labels = batch
-        print(b_input_ids.shape)
-        print(b_input_mask.shape)
-        print(b_segment_ids.shape)
-        print(b_labels.shape)
+        print("\n첫 번째 배치 텐서 크기:")
+        print("input_ids:", b_input_ids.shape)
+        print("attention_mask:", b_input_mask.shape)
+        print("token_type_ids:", b_segment_ids.shape)
+        print("labels:", b_labels.shape)
         break
 
 if __name__ == '__main__':

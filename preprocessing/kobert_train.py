@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import pandas as pd
 import numpy as np
 import torch
@@ -13,10 +14,15 @@ from transformers import (
 from torch.optim import AdamW
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def convert_to_kobert_inputs(text_list, max_len, tokenizer):
     input_ids, attention_masks, token_type_ids = [], [], []
-
     for text in text_list:
         text = "" if pd.isnull(text) else text
         encoded_dict = tokenizer.encode_plus(
@@ -38,44 +44,43 @@ def convert_to_kobert_inputs(text_list, max_len, tokenizer):
         torch.tensor(token_type_ids, dtype=torch.long)
     )
 
-
 def flat_accuracy(preds, labels):
     pred_flat = np.argmax(preds, axis=1).flatten()
     labels_flat = labels.flatten()
     return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
-
 def main():
+    set_seed(42)
+
     MAX_LEN = 128
     BATCH_SIZE = 32
     EPOCHS = 4
     MODEL_NAME = 'monologg/kobert'
 
     df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
-
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
+
     input_ids, attention_masks, token_type_ids = convert_to_kobert_inputs(
         df['combined_text'].values, MAX_LEN, tokenizer
     )
     labels = torch.tensor(df['blog_is_promotional'].values, dtype=torch.long)
 
-    indices = np.arange(len(labels))
-    train_idx, val_idx = train_test_split(indices, test_size=0.2, random_state=42, stratify=labels)
+    train_idx, val_idx = train_test_split(
+        np.arange(len(labels)), test_size=0.2, random_state=42, stratify=labels
+    )
 
-    train_inputs, val_inputs = input_ids[train_idx], input_ids[val_idx]
-    train_masks, val_masks = attention_masks[train_idx], attention_masks[val_idx]
-    train_types, val_types = token_type_ids[train_idx], token_type_ids[val_idx]
-    train_labels, val_labels = labels[train_idx], labels[val_idx]
+    train_data = TensorDataset(
+        input_ids[train_idx], attention_masks[train_idx], token_type_ids[train_idx], labels[train_idx]
+    )
+    val_data = TensorDataset(
+        input_ids[val_idx], attention_masks[val_idx], token_type_ids[val_idx], labels[val_idx]
+    )
 
-    train_data = TensorDataset(train_inputs, train_masks, train_types, train_labels)
-    val_data = TensorDataset(val_inputs, val_masks, val_types, val_labels)
-
-    train_dataloader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE)
-    val_dataloader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE)
+    train_loader = DataLoader(train_data, sampler=RandomSampler(train_data), batch_size=BATCH_SIZE)
+    val_loader = DataLoader(val_data, sampler=SequentialSampler(val_data), batch_size=BATCH_SIZE)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
-    model.to(device)
+    model = BertForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2).to(device)
 
     class_counts = np.bincount(labels.numpy())
     class_weights = 1.0 / torch.tensor(class_counts, dtype=torch.float)
@@ -83,16 +88,19 @@ def main():
     loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights)
 
     optimizer = AdamW(model.parameters(), lr=1e-5, eps=1e-8)
-    total_steps = len(train_dataloader) * EPOCHS
-    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=0, num_training_steps=len(train_loader) * EPOCHS
+    )
+
+    logs = []
 
     for epoch_i in range(EPOCHS):
         print(f'======== Epoch {epoch_i + 1} / {EPOCHS} ========')
 
         model.train()
         total_loss = 0
-        for batch in train_dataloader:
-            b_input_ids, b_input_mask, b_segment_ids, b_labels = tuple(t.to(device) for t in batch)
+        for batch in train_loader:
+            b_input_ids, b_input_mask, b_segment_ids, b_labels = (t.to(device) for t in batch)
 
             optimizer.zero_grad()
             outputs = model(b_input_ids, token_type_ids=b_segment_ids, attention_mask=b_input_mask)
@@ -103,15 +111,16 @@ def main():
             optimizer.step()
             scheduler.step()
 
-        print(f"Average training loss: {total_loss / len(train_dataloader):.2f}")
+        avg_train_loss = total_loss / len(train_loader)
+        print(f"Average training loss: {avg_train_loss:.2f}")
 
         model.eval()
         eval_loss = 0
         eval_accuracy = 0
         preds, true_labels = [], []
 
-        for batch in val_dataloader:
-            b_input_ids, b_input_mask, b_segment_ids, b_labels = tuple(t.to(device) for t in batch)
+        for batch in val_loader:
+            b_input_ids, b_input_mask, b_segment_ids, b_labels = (t.to(device) for t in batch)
             with torch.no_grad():
                 outputs = model(b_input_ids, token_type_ids=b_segment_ids, attention_mask=b_input_mask)
                 loss = loss_fn(outputs.logits, b_labels)
@@ -124,10 +133,8 @@ def main():
             true_labels.append(label_ids)
             eval_accuracy += flat_accuracy(logits, label_ids)
 
-        eval_loss /= len(val_dataloader)
-        eval_accuracy /= len(val_dataloader)
-        print(f"Validation Loss: {eval_loss:.2f}")
-        print(f"Validation Accuracy: {eval_accuracy:.2f}")
+        eval_loss /= len(val_loader)
+        eval_accuracy /= len(val_loader)
 
         preds = np.concatenate(preds, axis=0)
         true_labels = np.concatenate(true_labels, axis=0)
@@ -139,29 +146,37 @@ def main():
         )
         conf_matrix = confusion_matrix(labels_flat, preds_flat)
 
-        print(f"Precision: {precision:.2f}")
-        print(f"Recall: {recall:.2f}")
-        print(f"F1 Score: {f1:.2f}")
+        print(f"Validation Loss: {eval_loss:.2f}")
+        print(f"Validation Accuracy: {eval_accuracy:.2f}")
+        print(f"Precision: {precision:.2f}, Recall: {recall:.2f}, F1 Score: {f1:.2f}")
         print(f"Confusion Matrix:\n{conf_matrix}")
+
+        logs.append({
+            'epoch': epoch_i + 1,
+            'train_loss': avg_train_loss,
+            'val_loss': eval_loss,
+            'val_accuracy': eval_accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1
+        })
 
     output_dir = '../data/model_save/'
     os.makedirs(output_dir, exist_ok=True)
-
-    # 모델 + 토크나이저 저장 (Hugging Face 방식)
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
-    print(f"✅ Model and tokenizer saved to {output_dir}")
+    print(f"Model and tokenizer saved to {output_dir}")
 
-    config = {
-        "model_name": MODEL_NAME,
-        "max_len": MAX_LEN,
-        "batch_size": BATCH_SIZE,
-        "epochs": EPOCHS
-    }
     with open(os.path.join(output_dir, "training_config.json"), "w") as f:
-        json.dump(config, f, indent=2)
-    print("✅ training_config.json saved.")
+        json.dump({
+            "model_name": MODEL_NAME,
+            "max_len": MAX_LEN,
+            "batch_size": BATCH_SIZE,
+            "epochs": EPOCHS
+        }, f, indent=2)
 
+    pd.DataFrame(logs).to_csv(os.path.join(output_dir, "training_log.csv"), index=False)
+    print("training_config.json and training_log.csv saved.")
 
 if __name__ == '__main__':
     main()

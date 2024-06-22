@@ -1,3 +1,6 @@
+# 이 코드는 네이버 블로그에서 공개적으로 접근 가능한 리뷰 데이터를 수집하는
+# 교육/연구 목적으로만 사용됩니다. 상업적 용도 및 대량 요청 사용을 금지합니다.
+
 import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -64,9 +67,9 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 query = "리뷰"
 pageCnt = 1
 cnt = 1
-desired_cnt = 2000
-startDate='2023-03-01'
-endDate='2023-08-18'
+desired_cnt = 1000
+startDate='2024-08-19'
+endDate='2024-12-30'
 
 blog_posts = []
 
@@ -147,9 +150,9 @@ while cnt <= desired_cnt:
                     writer.writeheader()
                     for item in blog_posts:
                         writer.writerow(item)
-                print(f"🔄 중간 저장 완료 - {cnt}개")
+                print(f"중간 저장 완료 - {cnt}개")
                 
-            print(f"✅ 수집 완료 - cnt: {cnt}, pageCnt: {pageCnt}, href: {href}")
+            print(f"수집 완료 - cnt: {cnt}, pageCnt: {pageCnt}, href: {href}")
 
             cnt += 1
             if cnt > desired_cnt:
