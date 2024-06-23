@@ -5,14 +5,26 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+import re
 
 okt = Okt()
 
-def text_preprocessing(text, stopwords):
-    if pd.isnull(text) or text.strip() == "":
+def clean_text(text):
+    if pd.isnull(text):
         return ""
     text = text.replace("\n", " ").replace("\u200b", "")
     text = " ".join(text.split())
+
+    text = re.sub(r'[-=~_*]{2,}', ' ', text)  # 특수문자 반복 제거
+    text = re.sub(r'\b[a-zA-Z]{5,}\b', '', text)  # 긴 영문 제거
+    text = re.sub(r'\d{2,4}[-\s]?\d{3,4}[-\s]?\d{4}', '', text)  # 전화번호 제거
+    text = re.sub(r'\d+', '', text)  # 숫자 제거
+    text = re.sub(r'(\b\w+\b)( \1\b)+', r'\1', text)  # 단어 반복 제거
+
+    return text.strip()
+
+def text_preprocessing(text, stopwords):
+    text = clean_text(text)
     tokens = okt.morphs(text, stem=True)
     return " ".join([word for word in tokens if word not in stopwords])
 
@@ -47,8 +59,14 @@ def main():
     df['ocr_data'] = df['ocr_data'].fillna("")
     df['content'] = df['content'].fillna("")
 
-    df['content'] = df['content'].apply(lambda x: text_preprocessing(x, stopwords))
+    df['title'] = df['title'].apply(lambda x: text_preprocessing(x, stopwords))
     df['ocr_data'] = df['ocr_data'].apply(lambda x: text_preprocessing(x, stopwords))
+    df['content'] = df['content'].apply(lambda x: text_preprocessing(x, stopwords))
+
+    df = df[df['content'].str.strip() != '']
+
+    df.reset_index(drop=True, inplace=True)
+    df['cnt'] = df.index + 1
 
     print("\n전처리 샘플 확인 (상위 5개)")
     for i in range(5):
@@ -59,7 +77,6 @@ def main():
         print("-" * 50)
 
     df['combined_text'] = df['title'] + " " + df['ocr_data'] + " " + df['content']
-
     df = df[['cnt', 'combined_text', 'blog_is_promotional']]
 
     df.to_csv('../data/processed_output.csv', index=False, encoding='utf-8-sig')
