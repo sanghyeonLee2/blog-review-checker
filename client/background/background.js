@@ -1,7 +1,7 @@
 import { EVENT_ACTIONS } from "../scripts/constants/eventActions";
 import handleLinkAnalysis from "../scripts/handlers/handleLinkAnalysis";
 
-const OPTION_TITLE = "광고성 체크";
+const OPTION_TITLE = "홍보성 체크";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
