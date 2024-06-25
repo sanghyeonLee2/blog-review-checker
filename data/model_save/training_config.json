@@ -2,5 +2,5 @@
   "model_name": "monologg/kobert",
   "max_len": 128,
   "batch_size": 32,
-  "epochs": 4
+  "epochs": 10
 }

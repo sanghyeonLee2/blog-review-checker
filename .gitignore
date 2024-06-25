@@ -16,7 +16,10 @@ __pycache__/
 /client/node_modules/
 
 # CSV 데이터 파일 (크롤링 원본 및 전처리 포함)
-data/*.csv
+data/output.csv
+data/processed_output.csv
+data/~$output.csv
+data/model_save/pytorch_model.bin
 
 # SSL 인증서 및 키
 server/ssl/
