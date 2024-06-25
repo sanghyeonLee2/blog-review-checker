@@ -185,11 +185,11 @@ def main():
             patience_counter = 0
             model.save_pretrained('../data/model_save/')
             tokenizer.save_pretrained('../data/model_save/')
-            print("✅ Improved model saved.")
+            print("Improved model saved.")
         else:
             patience_counter += 1
             if patience_counter >= EARLY_STOPPING_PATIENCE:
-                print("🛑 Early stopping triggered.")
+                print("Early stopping triggered.")
                 break
 
     # 저장
