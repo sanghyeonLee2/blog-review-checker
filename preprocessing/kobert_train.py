@@ -4,6 +4,7 @@ import random
 import pandas as pd
 import numpy as np
 import torch
+import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 from transformers import (
@@ -13,6 +14,17 @@ from transformers import (
 )
 from torch.optim import AdamW
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
+
+# ====================== 설정 =========================
+
+MAX_LEN = 128
+BATCH_SIZE = 32
+EPOCHS = 10
+MODEL_NAME = 'monologg/kobert'
+LABEL_SMOOTHING = 0.1
+EARLY_STOPPING_PATIENCE = 2
+
+# ===================== 유틸 함수 ====================
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -49,13 +61,17 @@ def flat_accuracy(preds, labels):
     labels_flat = labels.flatten()
     return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
+def label_smoothing_loss(logits, labels, smoothing=0.0):
+    confidence = 1.0 - smoothing
+    log_probs = F.log_softmax(logits, dim=-1)
+    nll_loss = -log_probs.gather(dim=-1, index=labels.unsqueeze(1)).squeeze(1)
+    smooth_loss = -log_probs.mean(dim=-1)
+    return (confidence * nll_loss + smoothing * smooth_loss).mean()
+
+# ===================== 학습 메인 =====================
+
 def main():
     set_seed(42)
-
-    MAX_LEN = 128
-    BATCH_SIZE = 32
-    EPOCHS = 4
-    MODEL_NAME = 'monologg/kobert'
 
     df = pd.read_csv('../data/processed_output.csv', encoding='utf-8-sig')
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
@@ -66,7 +82,7 @@ def main():
     labels = torch.tensor(df['blog_is_promotional'].values, dtype=torch.long)
 
     train_idx, val_idx = train_test_split(
-        np.arange(len(labels)), test_size=0.2, random_state=42, stratify=labels
+        np.arange(len(labels)), test_size=0.2, stratify=labels, random_state=42
     )
 
     train_data = TensorDataset(
@@ -85,18 +101,20 @@ def main():
     class_counts = np.bincount(labels.numpy())
     class_weights = 1.0 / torch.tensor(class_counts, dtype=torch.float)
     class_weights = class_weights.to(device)
-    loss_fn = torch.nn.CrossEntropyLoss(weight=class_weights)
 
-    optimizer = AdamW(model.parameters(), lr=1e-5, eps=1e-8)
+    optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=0, num_training_steps=len(train_loader) * EPOCHS
     )
 
     logs = []
+    best_f1 = 0.0
+    patience_counter = 0
 
     for epoch_i in range(EPOCHS):
-        print(f'======== Epoch {epoch_i + 1} / {EPOCHS} ========')
+        print(f"\n======== Epoch {epoch_i + 1} / {EPOCHS} ========")
 
+        # === 학습 ===
         model.train()
         total_loss = 0
         for batch in train_loader:
@@ -104,7 +122,7 @@ def main():
 
             optimizer.zero_grad()
             outputs = model(b_input_ids, token_type_ids=b_segment_ids, attention_mask=b_input_mask)
-            loss = loss_fn(outputs.logits, b_labels)
+            loss = label_smoothing_loss(outputs.logits, b_labels, smoothing=LABEL_SMOOTHING)
             total_loss += loss.item()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -112,18 +130,18 @@ def main():
             scheduler.step()
 
         avg_train_loss = total_loss / len(train_loader)
-        print(f"Average training loss: {avg_train_loss:.2f}")
+        print(f"Average training loss: {avg_train_loss:.4f}")
 
+        # === 평가 ===
         model.eval()
-        eval_loss = 0
-        eval_accuracy = 0
+        eval_loss, eval_accuracy = 0, 0
         preds, true_labels = [], []
 
         for batch in val_loader:
             b_input_ids, b_input_mask, b_segment_ids, b_labels = (t.to(device) for t in batch)
             with torch.no_grad():
                 outputs = model(b_input_ids, token_type_ids=b_segment_ids, attention_mask=b_input_mask)
-                loss = loss_fn(outputs.logits, b_labels)
+                loss = label_smoothing_loss(outputs.logits, b_labels, smoothing=LABEL_SMOOTHING)
                 logits = outputs.logits
 
             eval_loss += loss.item()
@@ -142,13 +160,13 @@ def main():
         labels_flat = true_labels.flatten()
 
         precision, recall, f1, _ = precision_recall_fscore_support(
-            labels_flat, preds_flat, average='binary', zero_division=0
+            labels_flat, preds_flat, average='macro', zero_division=0
         )
         conf_matrix = confusion_matrix(labels_flat, preds_flat)
 
-        print(f"Validation Loss: {eval_loss:.2f}")
-        print(f"Validation Accuracy: {eval_accuracy:.2f}")
-        print(f"Precision: {precision:.2f}, Recall: {recall:.2f}, F1 Score: {f1:.2f}")
+        print(f"Validation Loss: {eval_loss:.4f}")
+        print(f"Validation Accuracy: {eval_accuracy:.4f}")
+        print(f"Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1:.4f}")
         print(f"Confusion Matrix:\n{conf_matrix}")
 
         logs.append({
@@ -161,22 +179,30 @@ def main():
             'f1': f1
         })
 
-    output_dir = '../data/model_save/'
-    os.makedirs(output_dir, exist_ok=True)
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
-    print(f"Model and tokenizer saved to {output_dir}")
+        # Early stopping
+        if f1 > best_f1:
+            best_f1 = f1
+            patience_counter = 0
+            model.save_pretrained('../data/model_save/')
+            tokenizer.save_pretrained('../data/model_save/')
+            print("✅ Improved model saved.")
+        else:
+            patience_counter += 1
+            if patience_counter >= EARLY_STOPPING_PATIENCE:
+                print("🛑 Early stopping triggered.")
+                break
 
-    with open(os.path.join(output_dir, "training_config.json"), "w") as f:
+    # 저장
+    pd.DataFrame(logs).to_csv('../data/model_save/training_log.csv', index=False)
+    with open('../data/model_save/training_config.json', 'w', encoding='utf-8') as f:
         json.dump({
             "model_name": MODEL_NAME,
             "max_len": MAX_LEN,
             "batch_size": BATCH_SIZE,
-            "epochs": EPOCHS
-        }, f, indent=2)
+            "epochs": epoch_i + 1
+        }, f, indent=2, ensure_ascii=False)
 
-    pd.DataFrame(logs).to_csv(os.path.join(output_dir, "training_log.csv"), index=False)
-    print("training_config.json and training_log.csv saved.")
+    print("training_log.csv and training_config.json saved.")
 
 if __name__ == '__main__':
     main()
