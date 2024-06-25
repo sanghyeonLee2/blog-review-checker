@@ -3,6 +3,7 @@
 .venv/
 venv310/
 __pycache__/
+/client/dist/
 
 # Python 컴파일 결과
 *.py[cod]
