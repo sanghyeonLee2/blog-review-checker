@@ -13,6 +13,7 @@
 7. [클라이언트 구성 및 주요 기능](#-클라이언트-구성-및-주요-기능)
 8. [로컬 실행 및 확장 프로그램 설치](#-로컬-실행-및-확장-프로그램-설치)
 9. [실제 사용 화면 예시](#-실제-사용-화면-예시)
+10. [참고 자료](#-참고-자료)
 
 ## 프로젝트 개요
 
@@ -25,6 +26,8 @@
 - 분석 결과를 **실시간으로 시각화**하여 사용자에게 표시
 - **Flask 백엔드**에서 크롤링 및 KoBERT 기반 AI 모델로 예측 수행
 - 프론트엔드는 **Context Menu, 팝업, DOM 조작**을 포함하여 사용자 경험 중심의 UI 구성
+
+> 본 프로젝트는 **한국컴퓨터정보학회 2024 하계학술대회**에 논문으로 출품 및 발표되었습니다.
 
 ## 기술 스택
 
@@ -123,7 +126,9 @@ Clova OCR API를 통해 이미지 속 문구까지 분석에 활용했습니다.
 
 ### 모델 성능
 
+<p align="center">
 <img src="./assets/performance.png" alt="성능" width="400"/>
+</p>
 
 - **Validation Accuracy**: 최고 0.81
 - **F1 Score**: 최고 0.79 (macro average 기준)
@@ -146,13 +151,6 @@ Flask 기반 서버는 크롤링, 전처리, 추론 기능을 REST API로 제공
   - 서버에서는 이미지 OCR 수행 후 결합 텍스트 생성 및 추론
 
 - 결과: `predictions`, `probabilities` 반환
-
-### 내부 구성
-
-- `services/crawler.py`: iframe 내부 페이지 크롤링 (Playwright 사용)
-- `services/ocr.py`: 이미지 OCR (Naver CLOVA OCR API 사용)
-- `services/inference.py`: 학습된 KoBERT 모델 로드 및 추론 수행
-- `routes/`: 요청 라우팅을 처리하는 블루프린트 구성
 
 ## 클라이언트 구성
 
@@ -220,72 +218,84 @@ Flask 기반 서버는 크롤링, 전처리, 추론 기능을 REST API로 제공
 
 ## 로컬 실행 및 확장 프로그램 설치
 
-아래 단계에 따라 로컬에서 클라이언트와 서버를 실행하고 크롬 확장 프로그램을 설치할 수 있습니다.
+아래 단계에 따라 클라이언트와 서버를 실행하고, 크롬 확장 프로그램을 설치할 수 있습니다.
 
 ---
 
 ### 1. 프로젝트 클론 및 설치
+
+**전체 프로젝트 클론 후 이동:**
 
 ```bash
 git clone https://github.com/your-username/blog-review-checker.git
 cd blog-review-checker
 ```
 
-클라이언트 디렉토리로 이동 후 의존성 설치:
+**클라이언트 설치 및 번들링:**
 
 ```bash
 cd client
 npm install
-```
-
-### 2. 클라이언트 번들링
-
-ESBuild를 사용하여 클라이언트 코드를 번들링합니다:
-
-```bash
 npm run build
-번들링이 완료되면 dist/ 디렉토리에 다음과 같은 파일이 생성됩니다:
-
-popup.bundle.js
-
-background.bundle.js
-
-content.bundle.js
+#ESBuild로 번들링된 결과물(popup.bundle.js, background.bundle.js, content.bundle.js)이 dist/ 디렉토리에 생성
 ```
 
-### 3. 서버 실행 (Flask 기반)
-
-서버 디렉토리로 이동 후 가상환경 설정 및 실행:
+**서버 설치:**
 
 ```bash
 cd ../server
 python -m venv venv
-source venv/bin/activate  # (Windows는 venv\Scripts\activate)
+source venv/bin/activate (Windows는 venv\Scripts\activate)
 pip install -r requirements.txt
-python run.py
 ```
 
-기본적으로 https://localhost:3000에서 실행됩니다.
+---
 
-### 4. 크롬 확장 프로그램 설치
+### 2. SSL 인증서 발급
 
-크롬 브라우저 주소창에 chrome://extensions 입력
+HTTPS 실행을 위해 인증서가 필요합니다.
+테스트용 인증서는 다음 명령어로 생성할 수 있습니다:
 
-우측 상단 개발자 모드 활성화
+```bash
+openssl req -x509 -newkey rsa:4096 -nodes -keyout ssl/key.pem -out ssl/cert.pem -days 365
+```
 
-압축 해제된 확장 프로그램 로드 클릭
+※ 인증서는 server/ssl/ 디렉토리에 위치해야 합니다.
 
-client 디렉토리를 선택
+---
 
-### 5. 사용 방법
+### 3. 데이터 수집 및 전처리
 
-블로그 목록에서 마우스 오른쪽 클릭 → “광고성 체크” 클릭
+- 블로그 크롤링: python blog_crawler.py
+- 전처리 및 라벨 처리: python preprocess_for_kobert.py
 
-또는 블로그 페이지 내에서 확장 프로그램 아이콘 클릭 후 → “홍보성 체크” 버튼 클릭
+※ 이 과정을 통해 data/processed_output.csv 가 생성되어야 예측이 가능합니다.
 
-분석 결과는 해당 블로그 포스트 영역 또는 팝업에서 확인할 수 있습니다.
+---
 
-### 실제 사용 화면 예시
+### 4. 서버 실행
+
+- python run.py
+  기본 주소: https://localhost:3000
+
+---
+
+### 5. 크롬 확장 프로그램 설치
+
+1. 크롬 주소창에 chrome://extensions 입력
+2. 우측 상단 **개발자 모드** 활성화
+3. **압축 해제된 확장 프로그램 로드** 클릭
+4. client/ 디렉토리 선택
+
+---
+
+### 6. 사용 방법
+
+- 블로그 목록에서 마우스 우클릭 → `홍보성 체크`
+- 블로그 상세 페이지에서 확장 프로그램 팝업 → 버튼 클릭
+- 분석 결과는 블로그 글 옆 배지 또는 팝업으로 표시됩니다.
+
+## 실제 사용 화면 예시
 
 Chrome 확장 프로그램을 통해 분석 기능을 수행하면 아래와 같은 방식으로 블로그 글 옆에 시각적인 결과가 표시됩니다:
 
@@ -297,3 +307,12 @@ Chrome 확장 프로그램을 통해 분석 기능을 수행하면 아래와 같
 |       블로그 목록에 표시되는 결과       |       분석 팝업에 표시되는 결과       |
 | :-------------------------------------: | :-----------------------------------: |
 | ![블로그 목록 배지](./assets/outer.gif) | ![분석 결과 팝업](./assets/inner.gif) |
+
+## 참고 자료
+
+- [한국컴퓨터정보학회 2024 하계학술대회 논문 PDF 다운로드](./paper/A_System_for_Determining_the_Advertising_Property_of_Blog.pdf)
+- [발표자료 PDF 다운로드](./paper/KoBERT_project_pt.pdf)
+
+```
+
+```
