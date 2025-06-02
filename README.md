@@ -189,7 +189,6 @@ Flask 기반 서버는 크롤링, 전처리, 추론 기능을 REST API로 제공
 ### 번들링 스크립트
 
 ```json
-// package.json 중 일부
 "scripts": {
   "build:content": "esbuild client/content/content.js --bundle --outfile=client/dist/content.bundle.js",
   "build:background": "esbuild client/background/background.js --bundle --outfile=client/dist/background.bundle.js --format=esm",
@@ -273,6 +272,20 @@ openssl req -x509 -newkey rsa:4096 -nodes -keyout ssl/key.pem -out ssl/cert.pem 
 
 ---
 
+### 3-1. 모델 다운로드 및 배치
+
+GitHub의 용량 제한으로 인해 학습된 KoBERT 모델 파일은 별도로 제공됩니다.  
+아래 링크에서 다운로드 후 지정된 경로에 위치시켜 주세요:
+
+- [모델 다운로드 (pytorch_model.bin)](https://drive.google.com/uc?id=12Wh4CQseMiOjH6o5XmfMJpyTjjX8445L)
+
+**자동 다운로드 명령어:**
+
+```bash
+pip install gdown
+gdown https://drive.google.com/uc?id=12Wh4CQseMiOjH6o5XmfMJpyTjjX8445L -O data/model_save/pytorch_model.bin
+```
+
 ### 4. 서버 실행
 
 - python run.py
@@ -312,7 +325,3 @@ Chrome 확장 프로그램을 통해 분석 기능을 수행하면 아래와 같
 
 - [한국컴퓨터정보학회 2024 하계학술대회 논문 PDF 다운로드](./paper/A_System_for_Determining_the_Advertising_Property_of_Blog.pdf)
 - [발표자료 PDF 다운로드](./paper/KoBERT_project_pt.pdf)
-
-```
-
-```
