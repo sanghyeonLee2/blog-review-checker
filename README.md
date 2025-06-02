@@ -323,5 +323,5 @@ Chrome 확장 프로그램을 통해 분석 기능을 수행하면 아래와 같
 
 ## 참고 자료
 
-- [한국컴퓨터정보학회 2024 하계학술대회 논문 PDF 다운로드](./paper/A_System_for_Determining_the_Advertising_Property_of_Blog.pdf)
-- [발표자료 PDF 다운로드](./paper/KoBERT_project_pt.pdf)
+- [한국컴퓨터정보학회 2024 하계학술대회 논문 보기 (DBpia)](https://www.dbpia.co.kr/journal/articleDetail?nodeId=NODE11926115)
+- [발표자료 PDF 보기](./paper/KoBERT_project_pt.pdf)
